@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0F6E56">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CleanInv">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>CleanInv</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<style>
+:root{
+  --g1:#0F6E56;--g2:#1D9E75;--gl:#E1F5EE;--gb:#5DCAA5;
+  --am:#FAEEDA;--amd:#BA7517;--rl:#FCEBEB;--rd:#A32D2D;
+  --bl:#E6F1FB;--bd:#185FA5;--pl:#EEEDFE;--pd:#3C3489;
+  --bg:#F0F7F4;--sf:#FFFFFF;--tx:#111827;--tm:#6B7280;--tf:#9CA3AF;
+  --br:#D1E8DE;--rs:8px;--rm:12px;--rl2:18px;
+  --sh:0 2px 14px rgba(15,110,86,0.10);
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#0A1510;--sf:#132018;--tx:#E8F5EF;--tm:#7AA898;--tf:#4A7A68;
+  --br:#1E3A2C;--sh:0 2px 14px rgba(0,0,0,0.5);
+  --gl:#0A2820;--bl:#081820;--am:#201808;--rl:#200808;--pl:#100820;
+}}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--tx)}
+
+/* TOPBAR */
+#topbar{
+  position:fixed;top:0;left:0;right:0;z-index:300;
+  background:var(--g1);
+  padding:env(safe-area-inset-top,0) 14px 0;
+  display:flex;align-items:center;gap:8px;
+  height:calc(52px + env(safe-area-inset-top,0));
+}
+.logo{font-size:18px;font-weight:700;color:#fff;flex:1}
+.logo sub{font-size:11px;opacity:.6;font-weight:400;margin-left:4px}
+#badge{background:rgba(255,255,255,0.25);color:#fff;font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px}
+.tbtn{background:rgba(255,255,255,0.15);border:none;color:#fff;padding:6px 11px;border-radius:var(--rs);font-size:13px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px}
+
+/* TABS */
+#tabs{
+  position:fixed;bottom:0;left:0;right:0;z-index:300;
+  background:var(--sf);border-top:1px solid var(--br);
+  display:grid;grid-template-columns:repeat(4,1fr);
+  padding-bottom:env(safe-area-inset-bottom,0);
+}
+.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px 6px;cursor:pointer;color:var(--tf);border:none;background:none;gap:2px;font-family:inherit}
+.tab svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tab span{font-size:10px;font-weight:500}
+.tab.active{color:var(--g1)}
+
+/* PAGES */
+#pages{
+  position:fixed;
+  top:calc(52px + env(safe-area-inset-top,0));
+  bottom:calc(54px + env(safe-area-inset-bottom,0));
+  left:0;right:0;overflow:hidden;
+}
+.page{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none;padding:14px}
+.page.active{display:block}
+
+/* CARDS */
+.card{background:var(--sf);border-radius:var(--rm);border:1px solid var(--br);padding:14px;margin-bottom:12px;box-shadow:var(--sh)}
+.ct{font-size:11px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+
+/* ── SCANNER AREA ── */
+#scanWrap{
+  position:relative;background:#000;border-radius:var(--rm);overflow:hidden;
+  width:100%;aspect-ratio:4/3;margin-bottom:10px;
+  display:flex;align-items:center;justify-content:center;
+  min-height:240px;
+}
+#videoEl{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+#scanFrame{
+  position:absolute;
+  top:50%;left:50%;transform:translate(-50%,-50%);
+  width:75%;max-width:320px;height:55%;max-height:200px;
+  border:2px solid var(--gb);border-radius:10px;
+  box-shadow:0 0 0 2000px rgba(0,0,0,0.45);
+  pointer-events:none;display:none;
+}
+.corner{position:absolute;width:22px;height:22px}
+.corner-tl{top:-2px;left:-2px;border-top:3px solid #fff;border-left:3px solid #fff;border-radius:6px 0 0 0}
+.corner-tr{top:-2px;right:-2px;border-top:3px solid #fff;border-right:3px solid #fff;border-radius:0 6px 0 0}
+.corner-bl{bottom:-2px;left:-2px;border-bottom:3px solid #fff;border-left:3px solid #fff;border-radius:0 0 0 6px}
+.corner-br{bottom:-2px;right:-2px;border-bottom:3px solid #fff;border-right:3px solid #fff;border-radius:0 0 6px 0}
+#scanBar{position:absolute;left:0;right:0;height:2px;background:rgba(93,202,165,0.9);top:0;animation:sweep 1.6s ease-in-out infinite;display:none}
+@keyframes sweep{0%,100%{top:0}50%{top:calc(100% - 2px)}}
+#camPH{text-align:center;padding:20px}
+#camPH svg{width:52px;height:52px;stroke:#3a6a58;fill:none;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;display:block;margin:0 auto 10px}
+#camPH p{color:#4a7a68;font-size:14px}
+#scanMode{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:none;gap:0;border-radius:99px;overflow:hidden;border:1px solid rgba(93,202,165,0.6)}
+#scanMode button{background:rgba(0,0,0,0.6);color:rgba(255,255,255,0.7);border:none;padding:6px 14px;font-size:12px;font-family:inherit;cursor:pointer}
+#scanMode button.sm-active{background:var(--g1);color:#fff}
+
+#codeBox{
+  padding:11px 13px;border-radius:var(--rs);font-size:14px;
+  border:1px solid var(--br);background:var(--bg);color:var(--tm);
+  display:flex;align-items:center;gap:8px;margin-bottom:10px;
+  min-height:46px;word-break:break-all;
+}
+#codeBox.found{background:var(--gl);border-color:var(--gb);color:var(--g1);font-weight:600}
+.scanBtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.manRow{display:flex;gap:8px;margin-bottom:4px}
+.manRow input{flex:1}
+.manRow button{padding:11px 13px;border-radius:var(--rs);background:var(--bg);border:1px solid var(--br);color:var(--tx);font-family:inherit;font-size:14px;cursor:pointer;white-space:nowrap}
+
+/* FOTO */
+#photoSection{margin-bottom:10px}
+#photoPreviewWrap{
+  display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;
+}
+.photo-thumb{
+  position:relative;width:72px;height:72px;border-radius:var(--rs);
+  overflow:hidden;border:1px solid var(--br);cursor:pointer;flex-shrink:0;
+}
+.photo-thumb img{width:100%;height:100%;object-fit:cover}
+.photo-del{
+  position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.6);
+  color:#fff;border:none;border-radius:50%;width:20px;height:20px;
+  font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+.add-photo-btn{
+  width:72px;height:72px;border-radius:var(--rs);border:2px dashed var(--br);
+  background:var(--bg);display:flex;flex-direction:column;align-items:center;
+  justify-content:center;cursor:pointer;color:var(--tm);font-size:11px;gap:4px;flex-shrink:0;
+}
+.add-photo-btn svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* FORMS */
+.fg{margin-bottom:12px}
+.fg label{display:block;font-size:11px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+input[type=text],input[type=number],input[type=date],select,textarea{
+  width:100%;padding:11px 13px;border-radius:var(--rs);
+  border:1px solid var(--br);background:var(--bg);color:var(--tx);
+  font-size:15px;font-family:inherit;outline:none;
+  -webkit-appearance:none;appearance:none;
+  transition:border-color .15s,box-shadow .15s;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--gb);box-shadow:0 0 0 3px rgba(93,202,165,0.2)}
+textarea{resize:vertical;min-height:76px;line-height:1.5}
+.fr2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* CHIPS */
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
+.chip{
+  padding:7px 13px;border-radius:99px;font-size:13px;font-weight:500;
+  border:1.5px solid var(--br);color:var(--tm);background:var(--bg);
+  cursor:pointer;transition:all .12s;user-select:none;
+}
+.chip:active{transform:scale(.96)}
+.chip.uso-on{background:var(--g1);color:#fff;border-color:var(--g1)}
+.chip.seg-bajo{background:#EAF3DE;color:#1B4D0A;border-color:#7AB84A}
+.chip.seg-mod{background:var(--am);color:#8B4E00;border-color:#D4891A}
+.chip.seg-alto{background:var(--rl);color:var(--rd);border-color:#E07070}
+.chip.seg-cor{background:#F5D0D0;color:#6B0E0E;border-color:var(--rd)}
+
+.hint{margin-top:8px;padding:10px 12px;border-radius:var(--rs);font-size:12px;line-height:1.6}
+.hg{background:var(--gl);color:var(--g1);border:1px solid var(--gb)}
+.ha{background:var(--am);color:#7A4000;border:1px solid #D4891A}
+
+/* BUTTONS */
+.btn{padding:11px 16px;border-radius:var(--rs);font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:7px;transition:opacity .15s,transform .1s}
+.btn:active{transform:scale(.97);opacity:.85}
+.btn-p{background:var(--g1);color:#fff}
+.btn-o{background:var(--sf);color:var(--tx);border:1px solid var(--br)}
+.btn-d{background:var(--rl);color:var(--rd)}
+.btn-b{background:var(--bl);color:var(--bd)}
+.btn-full{width:100%}
+.btn-big{padding:14px;font-size:16px}
+
+/* INVENTORY CARDS */
+.icard{background:var(--sf);border-radius:var(--rm);border:1px solid var(--br);margin-bottom:10px;box-shadow:var(--sh);overflow:hidden}
+.ih{padding:12px 14px;display:flex;align-items:flex-start;gap:10px}
+.iimg{width:60px;height:60px;border-radius:var(--rs);object-fit:cover;flex-shrink:0;border:1px solid var(--br)}
+.iimg-ph{width:60px;height:60px;border-radius:var(--rs);background:var(--bg);border:1px solid var(--br);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.iimg-ph svg{width:28px;height:28px;stroke:var(--tf);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.iinfo{flex:1;min-width:0}
+.iname{font-size:15px;font-weight:700;color:var(--tx);line-height:1.2}
+.ibrand{font-size:12px;color:var(--tm);margin-top:2px}
+.iprice{font-size:18px;font-weight:700;color:var(--g1);white-space:nowrap}
+.ibody{padding:0 14px 10px;display:flex;flex-wrap:wrap;gap:5px}
+.ifoot{padding:9px 14px;border-top:1px solid var(--br);background:var(--bg);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ifoot-meta{font-size:11px;color:var(--tf);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ibtn-del{background:none;border:none;color:var(--tf);cursor:pointer;padding:5px;border-radius:6px;display:flex;align-items:center}
+.ibtn-del:hover,.ibtn-del:active{color:var(--rd);background:var(--rl)}
+.iedit{background:none;border:none;color:var(--tm);cursor:pointer;padding:5px;border-radius:6px;display:flex;align-items:center}
+.iedit:active{color:var(--g1);background:var(--gl)}
+
+/* TAGS */
+.tag{display:inline-block;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:600}
+.tg{background:var(--gl);color:var(--g1)}
+.tb{background:var(--bl);color:var(--bd)}
+.ta{background:var(--am);color:#7A4000}
+.tr{background:var(--rl);color:var(--rd)}
+.tp{background:var(--pl);color:var(--pd)}
+
+/* STATS */
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.scard{background:var(--sf);border-radius:var(--rm);padding:14px;border:1px solid var(--br);text-align:center}
+.sval{font-size:26px;font-weight:800;color:var(--g1)}
+.slbl{font-size:11px;color:var(--tm);margin-top:2px;text-transform:uppercase;letter-spacing:.05em}
+.crow{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--br)}
+.crow:last-child{border-bottom:none}
+.cbar-w{width:80px;height:6px;background:var(--br);border-radius:3px;overflow:hidden}
+.cbar{height:100%;background:var(--g2);border-radius:3px}
+
+/* EMPTY */
+.empty{text-align:center;padding:50px 20px;color:var(--tf)}
+.empty svg{width:52px;height:52px;stroke:currentColor;fill:none;stroke-width:1.2;display:block;margin:0 auto 12px}
+.empty p{font-size:14px;line-height:1.6}
+
+/* MODAL */
+#modal{
+  position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.6);
+  display:none;align-items:flex-end;justify-content:center;
+  -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
+}
+#modal.open{display:flex}
+#modalBox{
+  background:var(--sf);border-radius:24px 24px 0 0;
+  width:100%;max-height:90vh;overflow-y:auto;
+  padding:20px 16px calc(20px + env(safe-area-inset-bottom,0));
+}
+.modal-handle{width:40px;height:4px;background:var(--br);border-radius:2px;margin:0 auto 16px}
+.modal-title{font-size:18px;font-weight:700;margin-bottom:16px}
+#modalPhotoWrap{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.modal-big-img{width:calc(50% - 4px);aspect-ratio:1;border-radius:var(--rm);object-fit:cover;cursor:pointer;border:1px solid var(--br)}
+
+/* LIGHTBOX */
+#lightbox{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.95);display:none;align-items:center;justify-content:center}
+#lightbox.open{display:flex}
+#lightbox img{max-width:95vw;max-height:90vh;border-radius:var(--rs);object-fit:contain}
+#lightbox button{position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer}
+
+/* TOAST */
+#toast{
+  position:fixed;bottom:calc(64px + env(safe-area-inset-bottom,0));
+  left:50%;transform:translateX(-50%) translateY(12px);
+  background:#132018;color:#9FEDD4;padding:10px 18px;
+  border-radius:99px;font-size:13px;font-weight:600;
+  z-index:400;opacity:0;pointer-events:none;white-space:nowrap;
+  transition:opacity .2s,transform .2s;box-shadow:0 4px 20px rgba(0,0,0,.4);
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* Install banner */
+#ibanner{
+  position:fixed;bottom:calc(54px + env(safe-area-inset-bottom,0));
+  left:0;right:0;background:var(--g1);color:#fff;
+  padding:12px 16px;display:none;align-items:center;gap:10px;z-index:200;
+}
+#ibanner p{flex:1;font-size:13px}
+#ibanner button{padding:7px 14px;border-radius:99px;border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div class="logo">CleanInv <sub>Inventario</sub></div>
+  <span id="badge">0</span>
+  <button class="tbtn" onclick="exportExcel()">
+    <svg width="15" height="15" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+    Excel
+  </button>
+</div>
+
+<!-- PAGES -->
+<div id="pages">
+
+<!-- ═══ TAB 1: ESCANEAR + FORMULARIO ═══ -->
+<div class="page active" id="page-scan">
+
+  <div class="card">
+    <div class="ct">📷 Escanear código</div>
+
+    <div id="scanWrap">
+      <video id="videoEl" autoplay playsinline muted></video>
+      <div id="scanFrame">
+        <div class="corner corner-tl"></div><div class="corner corner-tr"></div>
+        <div class="corner corner-bl"></div><div class="corner corner-br"></div>
+        <div id="scanBar"></div>
+      </div>
+      <div id="camPH">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="4"/><path d="M3 9V6a2 2 0 0 1 2-2h2M15 3h2a2 2 0 0 1 2 2v2M3 15v2a2 2 0 0 0 2 2h2M15 21h2a2 2 0 0 0 2-2v-2"/></svg>
+        <p>Toca "Activar cámara"</p>
+      </div>
+      <div id="scanMode">
+        <button id="smBar" class="sm-active" onclick="setScanMode('bar')">Barras</button>
+        <button id="smQR" onclick="setScanMode('qr')">QR</button>
+      </div>
+    </div>
+
+    <div id="codeBox">
+      <svg width="20" height="20" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="14" y1="3" x2="14" y2="21"/><line x1="3" y1="9" x2="9" y2="9"/><line x1="15" y1="9" x2="21" y2="9"/><line x1="3" y1="14" x2="21" y2="14"/></svg>
+      Sin código detectado
+    </div>
+
+    <div class="scanBtns">
+      <button class="btn btn-p" id="btnCam" onclick="toggleCamera()">
+        <svg width="17" height="17" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Activar cámara
+      </button>
+      <button class="btn btn-o" onclick="stopCamera()">
+        <svg width="17" height="17" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+        Detener
+      </button>
+    </div>
+
+    <div class="fg">
+      <label>Código manual</label>
+      <div class="manRow">
+        <input type="text" id="manualCode" placeholder="Ej: 7501234567890" inputmode="numeric">
+        <button onclick="useManual()">Usar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOTO DEL PRODUCTO -->
+  <div class="card">
+    <div class="ct">📸 Foto del producto</div>
+    <div id="photoPreviewWrap">
+      <div class="add-photo-btn" onclick="document.getElementById('photoInput').click()">
+        <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Agregar foto
+      </div>
+    </div>
+    <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none" onchange="addPhoto(event)">
+    <p style="font-size:11px;color:var(--tf);margin-top:6px">Puedes agregar varias fotos del producto o del código.</p>
+  </div>
+
+  <!-- DATOS DEL PRODUCTO -->
+  <div class="card">
+    <div class="ct">📋 Datos del producto</div>
+
+    <div class="fr2">
+      <div class="fg"><label>Nombre *</label><input type="text" id="fNombre" placeholder="Fabuloso, Pinol…"></div>
+      <div class="fg"><label>Marca *</label><input type="text" id="fMarca" placeholder="Colgate, Henkel…"></div>
+    </div>
+    <div class="fr2">
+      <div class="fg"><label>Presentación</label><input type="text" id="fPresent" placeholder="Botella 1L, Galón…"></div>
+      <div class="fg"><label>Fecha</label><input type="date" id="fFecha"></div>
+    </div>
+
+    <div class="fg">
+      <label>Categoría de limpieza</label>
+      <select id="fCateg" onchange="onCategChange()">
+        <option value="">— Seleccionar —</option>
+        <option>Pisos y superficies</option>
+        <option>Baños y sanitarios</option>
+        <option>Cocina y desengrasante</option>
+        <option>Vidrios y espejos</option>
+        <option>Ropa y lavandería</option>
+        <option>Desinfección general</option>
+        <option>Exteriores e industriales</option>
+        <option>Alfombras y tapizados</option>
+        <option>Metales e inox</option>
+        <option>Madera y muebles</option>
+        <option>Equipos y electrodomésticos</option>
+      </select>
+    </div>
+
+    <div class="fg" id="usoGroup" style="display:none">
+      <label>Uso adecuado para… <span style="text-transform:none;font-weight:400;font-size:10px">(toca para seleccionar)</span></label>
+      <div class="chips" id="usoChips"></div>
+      <div class="hint hg" style="margin-top:8px;font-size:12px">Selecciona una o varias superficies donde se usará este producto.</div>
+    </div>
+
+    <div class="fg">
+      <label>Nivel de seguridad</label>
+      <div class="chips" id="segChips">
+        <span class="chip" data-seg="Bajo" onclick="setSeg(this)">✔ Bajo</span>
+        <span class="chip" data-seg="Moderado" onclick="setSeg(this)">⚠ Moderado</span>
+        <span class="chip" data-seg="Alto" onclick="setSeg(this)">⚠ Alto</span>
+        <span class="chip" data-seg="Corrosivo" onclick="setSeg(this)">🚨 Corrosivo</span>
+      </div>
+      <div class="hint ha" id="segHint" style="display:none;margin-top:8px;font-size:12px"></div>
+    </div>
+
+    <div class="fg">
+      <label>Instrucciones de uso / Etiqueta de seguridad</label>
+      <textarea id="fEtiq" placeholder="Ej: Diluir 60ml en 4L de agua. Aplicar con trapeador. Dejar actuar 5 min. No mezclar con blanqueador."></textarea>
+    </div>
+
+    <div class="fr2">
+      <div class="fg"><label>Lugar de compra *</label><input type="text" id="fTienda" placeholder="PriceSmart, EPA…"></div>
+      <div class="fg"><label>Precio (USD) *</label><input type="number" id="fPrecio" placeholder="0.00" min="0" step="0.01" inputmode="decimal"></div>
+    </div>
+
+    <div class="fg">
+      <label>Notas / Observaciones</label>
+      <textarea id="fNotas" placeholder="Ej: Buen rendimiento, comprado en oferta, último en stock…" style="min-height:60px"></textarea>
+    </div>
+
+    <button class="btn btn-p btn-full btn-big" onclick="addProduct()">
+      <svg width="20" height="20" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      Agregar al inventario
+    </button>
+  </div>
+</div>
+
+<!-- ═══ TAB 2: INVENTARIO ═══ -->
+<div class="page" id="page-inv">
+  <div style="display:flex;gap:8px;margin-bottom:12px">
+    <input type="text" id="searchQ" placeholder="🔍 Buscar producto, marca, categoría…" oninput="renderInv()" style="flex:1">
+  </div>
+  <div id="invList"></div>
+</div>
+
+<!-- ═══ TAB 3: ESTADÍSTICAS ═══ -->
+<div class="page" id="page-stats">
+  <div class="sgrid">
+    <div class="scard"><div class="sval" id="sTot">0</div><div class="slbl">Productos</div></div>
+    <div class="scard"><div class="sval" id="sVal">$0</div><div class="slbl">Valor total</div></div>
+    <div class="scard"><div class="sval" id="sAvg">$0</div><div class="slbl">Precio prom.</div></div>
+    <div class="scard"><div class="sval" id="sTnd">0</div><div class="slbl">Tiendas</div></div>
+  </div>
+  <div class="card"><div class="ct">Por categoría</div><div id="catB"></div></div>
+  <div class="card"><div class="ct">Por seguridad</div><div id="segB"></div></div>
+  <div style="margin-bottom:14px">
+    <button class="btn btn-d btn-full" onclick="clearAll()">
+      <svg width="17" height="17" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+      Borrar todo el inventario
+    </button>
+  </div>
+</div>
+
+<!-- ═══ TAB 4: AYUDA ═══ -->
+<div class="page" id="page-help">
+  <div class="card">
+    <div class="ct">📲 Instalar en iPhone</div>
+    <div style="font-size:14px;line-height:1.7;color:var(--tm)">
+      <p style="margin-bottom:10px">Para instalar como app en tu pantalla de inicio:</p>
+      <div style="background:var(--gl);border-radius:var(--rs);padding:12px;margin-bottom:8px">
+        <strong style="color:var(--g1)">1.</strong> Abre esta página en <strong>Safari</strong> (no Chrome)<br>
+        <strong style="color:var(--g1)">2.</strong> Toca el botón <strong>↑ Compartir</strong> en la barra inferior<br>
+        <strong style="color:var(--g1)">3.</strong> Selecciona <strong>"Añadir a pantalla de inicio"</strong><br>
+        <strong style="color:var(--g1)">4.</strong> Toca <strong>Añadir</strong>
+      </div>
+      <p style="font-size:12px;color:var(--tf)">La app funciona sin internet después de instalada. Los datos se guardan en tu dispositivo.</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">📋 Categorías de limpieza</div>
+    <div id="catHelp" style="font-size:13px;color:var(--tm);line-height:1.8"></div>
+  </div>
+  <div class="card">
+    <div class="ct">🔒 Niveles de seguridad</div>
+    <div style="font-size:13px;color:var(--tm);line-height:1.8">
+      <div style="padding:8px;border-radius:var(--rs);background:#EAF3DE;margin-bottom:6px"><strong style="color:#1B4D0A">✔ Bajo:</strong> Sin EPP. Lavarse las manos después. Uso doméstico seguro.</div>
+      <div style="padding:8px;border-radius:var(--rs);background:var(--am);margin-bottom:6px"><strong style="color:#7A4000">⚠ Moderado:</strong> Guantes de nitrilo o látex. Ventilar el área. Evitar contacto con ojos.</div>
+      <div style="padding:8px;border-radius:var(--rs);background:var(--rl);margin-bottom:6px"><strong style="color:var(--rd)">⚠ Alto:</strong> Guantes gruesos + gafas de seguridad + mascarilla N95. No inhalar vapores.</div>
+      <div style="padding:8px;border-radius:var(--rs);background:#F5D0D0"><strong style="color:#6B0E0E">🚨 Corrosivo:</strong> EPP completo obligatorio: guantes neopreno, gafas herméticas, mascarilla con filtro, bata protectora. Llamar emergencias si hay contacto.</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /pages -->
+
+<!-- BOTTOM TABS -->
+<nav id="tabs">
+  <button class="tab active" onclick="goTab('scan',this)">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="4"/><path d="M3 9V6a2 2 0 0 1 2-2h2M15 3h2a2 2 0 0 1 2 2v2M3 15v2a2 2 0 0 0 2 2h2M15 21h2a2 2 0 0 0 2-2v-2"/></svg>
+    <span>Escanear</span>
+  </button>
+  <button class="tab" onclick="goTab('inv',this)">
+    <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    <span>Inventario</span>
+  </button>
+  <button class="tab" onclick="goTab('stats',this)">
+    <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    <span>Estadísticas</span>
+  </button>
+  <button class="tab" onclick="goTab('help',this)">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <span>Ayuda</span>
+  </button>
+</nav>
+
+<!-- MODAL: ver detalle de producto -->
+<div id="modal" onclick="closeModal(event)">
+  <div id="modalBox">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modalTitle"></div>
+    <div id="modalPhotoWrap"></div>
+    <div id="modalBody"></div>
+    <button class="btn btn-o btn-full" onclick="closeModal()" style="margin-top:14px">Cerrar</button>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div id="lightbox" onclick="closeLightbox()">
+  <img id="lbImg" src="" alt="Foto producto">
+  <button onclick="closeLightbox()">✕</button>
+</div>
+
+<!-- INSTALL BANNER -->
+<div id="ibanner">
+  <p>📲 Instala CleanInv en tu pantalla de inicio</p>
+  <button style="background:#fff;color:var(--g1)" onclick="installPWA()">Instalar</button>
+  <button style="background:rgba(255,255,255,.2);color:#fff" onclick="document.getElementById('ibanner').style.display='none'">✕</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   DATA & STATE
+═══════════════════════════════════════════════ */
+const USO_MAP = {
+  "Pisos y superficies":         ["Pisos cerámicos","Pisos vinílicos","Pisos de madera","Superficies de granito","Cemento y concreto","Mármol"],
+  "Baños y sanitarios":          ["Inodoros","Lavamanos","Duchas y bañeras","Azulejos y juntas","Sanitarios de acero","Grifería"],
+  "Cocina y desengrasante":      ["Hornillas y cocinas","Campanas extractoras","Pisos de cocina","Mesones","Freidoras y parrillas","Microondas interior"],
+  "Vidrios y espejos":           ["Ventanas","Espejos interiores","Mampares de vidrio","Parabrisas","Vitrinas"],
+  "Ropa y lavandería":           ["Ropa blanca","Ropa de color","Tejidos delicados","Manchas orgánicas","Manchas de grasa","Ropa de trabajo"],
+  "Desinfección general":        ["Superficies de contacto frecuente","Área de comedor","Hospitales y clínicas","Control de bacterias","Control de virus","Guarderías y escuelas"],
+  "Exteriores e industriales":   ["Patios y aceras","Fachadas","Maquinaria industrial","Equipos de construcción","Piscinas y jacuzzis"],
+  "Alfombras y tapizados":       ["Alfombras","Tapizados de tela","Sillas de auto","Colchones","Sofás"],
+  "Metales e inox":              ["Acero inoxidable","Cromados","Cobre","Aluminio","Hierro galvanizado"],
+  "Madera y muebles":            ["Muebles de madera","Pisos de parquet","Molduras","Puertas de madera","Muebles lacados"],
+  "Equipos y electrodomésticos": ["Refrigeradoras","Microondas (exterior)","Lavadoras","Hornos","Lavavajillas","Aire acondicionado"]
+};
+const SEG_HINTS = {
+  "Bajo":     "✔ Sin EPP requerido. Lavarse las manos después. Apto para uso frecuente en el hogar.",
+  "Moderado": "⚠ Use guantes de nitrilo o látex. Ventile el área de trabajo. Evite contacto con ojos. Enjuague con agua si hay contacto.",
+  "Alto":     "⚠ EPP: guantes gruesos, gafas de seguridad selladas, mascarilla N95. No inhale vapores. Guardar bajo llave, fuera del alcance de niños.",
+  "Corrosivo":"🚨 PELIGROSO. EPP obligatorio: guantes neopreno, gafas herméticas, mascarilla con filtro y bata protectora. Ante cualquier contacto llame a emergencias."
+};
+const SEG_CLS = {"Bajo":"tg","Moderado":"ta","Alto":"tr","Corrosivo":"tr"};
+const CAT_CLS = {
+  "Pisos y superficies":"tg","Baños y sanitarios":"tb","Cocina y desengrasante":"ta",
+  "Vidrios y espejos":"tb","Ropa y lavandería":"tp","Desinfección general":"tg",
+  "Exteriores e industriales":"tr","Alfombras y tapizados":"ta","Metales e inox":"tb",
+  "Madera y muebles":"ta","Equipos y electrodomésticos":"tp"
+};
+
+let DB       = JSON.parse(localStorage.getItem('ci3') || '[]');
+let photos   = [];        // base64 array for current form
+let selUsos  = [];
+let selSeg   = '';
+let curCode  = '';
+let camActive= false;
+let stream   = null;
+let scanIv   = null;
+let scanMode = 'bar';     // 'bar' | 'qr'
+let deferredInstall = null;
+const scanCanvas = document.createElement('canvas');
+const scanCtx    = scanCanvas.getContext('2d');
+
+/* ═══════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════ */
+function init(){
+  document.getElementById('fFecha').value = today();
+  renderInv(); renderStats(); updateBadge();
+  buildCatHelp();
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+function today(){ return new Date().toISOString().slice(0,10); }
+
+/* ═══════════════════════════════════════════════
+   TABS
+═══════════════════════════════════════════════ */
+function goTab(name, btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='stats') renderStats();
+}
+
+/* ═══════════════════════════════════════════════
+   CAMERA & SCANNER  — CORREGIDO PARA IOS SAFARI
+═══════════════════════════════════════════════ */
+async function toggleCamera(){
+  if(camActive){ stopCamera(); return; }
+  await startCamera();
+}
+
+async function startCamera(){
+  try{
+    // iOS Safari requiere exactamente este constraints
+    const constraints = {
+      video:{
+        facingMode:{ ideal:'environment' },
+        width:{ ideal:1920 },
+        height:{ ideal:1080 }
+      }
+    };
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    const vid = document.getElementById('videoEl');
+    vid.srcObject = stream;
+    // iOS necesita play() explícito
+    await vid.play().catch(()=>{});
+    vid.style.display = 'block';
+    document.getElementById('camPH').style.display = 'none';
+    document.getElementById('scanFrame').style.display = 'block';
+    document.getElementById('scanBar').style.display = 'block';
+    document.getElementById('scanMode').style.display = 'flex';
+    document.getElementById('btnCam').innerHTML = `
+      <svg width="17" height="17" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+      Escaneando…`;
+    camActive = true;
+    // Esperar que el video tenga dimensiones antes de iniciar el loop
+    vid.onloadedmetadata = ()=>{
+      startScanLoop(vid);
+    };
+    // Fallback si el evento ya disparó
+    if(vid.readyState >= 2) startScanLoop(vid);
+  } catch(e){
+    console.error(e);
+    toast('Permiso de cámara denegado. Usa código manual o ve a Ajustes > Safari > Cámara.');
+  }
+}
+
+function startScanLoop(vid){
+  clearInterval(scanIv);
+  scanIv = setInterval(()=> scanFrame(vid), 250);
+}
+
+function stopCamera(){
+  clearInterval(scanIv); scanIv = null;
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  camActive = false;
+  const vid = document.getElementById('videoEl');
+  vid.srcObject = null;
+  vid.style.display = 'none';
+  document.getElementById('camPH').style.display = '';
+  document.getElementById('scanFrame').style.display = 'none';
+  document.getElementById('scanBar').style.display = 'none';
+  document.getElementById('scanMode').style.display = 'none';
+  document.getElementById('btnCam').innerHTML = `
+    <svg width="17" height="17" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+    Activar cámara`;
+}
+
+function setScanMode(m){
+  scanMode = m;
+  document.getElementById('smBar').className = m==='bar'?'sm-active':'';
+  document.getElementById('smQR').className  = m==='qr' ?'sm-active':'';
+}
+
+function scanFrame(vid){
+  if(!vid.videoWidth || !vid.videoHeight) return;
+  const W = vid.videoWidth, H = vid.videoHeight;
+  scanCanvas.width  = W;
+  scanCanvas.height = H;
+  scanCtx.drawImage(vid, 0, 0, W, H);
+
+  // Siempre intentar QR (rápido)
+  try{
+    const img = scanCtx.getImageData(0, 0, W, H);
+    const qr  = jsQR(img.data, W, H, { inversionAttempts:'attemptBoth' });
+    if(qr && qr.data){ setCode(qr.data, 'QR'); return; }
+  }catch(_){}
+
+  // Código de barras usando Quagga si está disponible
+  if(scanMode === 'bar' && typeof Quagga !== 'undefined'){
+    try{
+      Quagga.decodeSingle({
+        decoder:{ readers:['ean_reader','ean_8_reader','upc_reader','upc_e_reader','code_128_reader','code_39_reader','i2of5_reader'] },
+        locate: true,
+        src: scanCanvas.toDataURL('image/jpeg', 0.85)
+      }, r=>{
+        if(r && r.codeResult && r.codeResult.code){
+          setCode(r.codeResult.code, 'Barras');
+        }
+      });
+    }catch(_){}
+  }
+}
+
+function setCode(code, tipo){
+  curCode = code;
+  const box = document.getElementById('codeBox');
+  box.className = 'found';
+  box.innerHTML = `✅ [${tipo}] ${esc(code)}`;
+  stopCamera();
+  toast(`¡Código ${tipo} detectado!`);
+  // Auto-scroll al formulario
+  setTimeout(()=>{ document.getElementById('fNombre').focus(); }, 400);
+}
+
+function useManual(){
+  const v = document.getElementById('manualCode').value.trim();
+  if(!v){ toast('Ingresa un código primero'); return; }
+  setCode(v, 'Manual');
+  document.getElementById('manualCode').value = '';
+}
+
+/* ═══════════════════════════════════════════════
+   FOTOS
+═══════════════════════════════════════════════ */
+function addPhoto(event){
+  const files = Array.from(event.target.files);
+  files.forEach(file =>{
+    if(!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = e =>{
+      photos.push(e.target.result);
+      renderPhotoPreview();
+    };
+    reader.readAsDataURL(file);
+  });
+  event.target.value = ''; // reset input para poder agregar la misma foto de nuevo
+}
+
+function renderPhotoPreview(){
+  const wrap = document.getElementById('photoPreviewWrap');
+  wrap.innerHTML = '';
+  photos.forEach((src, i)=>{
+    const div = document.createElement('div');
+    div.className = 'photo-thumb';
+    div.innerHTML = `<img src="${src}" alt="foto ${i+1}"><button class="photo-del" onclick="removePhoto(${i})">✕</button>`;
+    div.querySelector('img').onclick = ()=> openLightbox(src);
+    wrap.appendChild(div);
+  });
+  // Botón agregar
+  const add = document.createElement('div');
+  add.className = 'add-photo-btn';
+  add.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Agregar foto`;
+  add.onclick = ()=> document.getElementById('photoInput').click();
+  wrap.appendChild(add);
+}
+
+function removePhoto(i){
+  photos.splice(i, 1);
+  renderPhotoPreview();
+}
+
+/* ═══════════════════════════════════════════════
+   FORM — CATEGORÍA Y USOS
+═══════════════════════════════════════════════ */
+function onCategChange(){
+  const cat   = document.getElementById('fCateg').value;
+  const group = document.getElementById('usoGroup');
+  const chips = document.getElementById('usoChips');
+  selUsos = [];
+  chips.innerHTML = '';
+
+  if(!cat || !USO_MAP[cat]){ group.style.display='none'; return; }
+  group.style.display = 'block';
+
+  USO_MAP[cat].forEach(uso =>{
+    const s = document.createElement('span');
+    s.className = 'chip';
+    s.textContent = uso;
+    s.addEventListener('click', ()=>{
+      const on = s.classList.toggle('uso-on');
+      if(on) selUsos.push(uso);
+      else   selUsos = selUsos.filter(u => u !== uso);
+    });
+    chips.appendChild(s);
+  });
+}
+
+function setSeg(el){
+  document.querySelectorAll('#segChips .chip').forEach(c =>{ c.className='chip'; });
+  const seg = el.dataset.seg;
+  el.classList.add('seg-'+seg.toLowerCase());
+  selSeg = seg;
+  const hint = document.getElementById('segHint');
+  hint.style.display = 'block';
+  hint.textContent   = SEG_HINTS[seg] || '';
+}
+
+/* ═══════════════════════════════════════════════
+   ADD PRODUCT
+═══════════════════════════════════════════════ */
+function addProduct(){
+  const nombre = document.getElementById('fNombre').value.trim();
+  const marca  = document.getElementById('fMarca').value.trim();
+  const tienda = document.getElementById('fTienda').value.trim();
+  const precio = parseFloat(document.getElementById('fPrecio').value);
+
+  if(!nombre){ toast('⚠ Ingresa el nombre del producto'); return; }
+  if(!marca)  { toast('⚠ Ingresa la marca'); return; }
+  if(!tienda) { toast('⚠ Ingresa el lugar de compra'); return; }
+  if(isNaN(precio)||precio<0){ toast('⚠ Ingresa un precio válido en USD'); return; }
+
+  const p = {
+    id:          Date.now(),
+    fecha:       document.getElementById('fFecha').value || today(),
+    codigo:      curCode || 'Manual',
+    nombre, marca,
+    presentacion:document.getElementById('fPresent').value.trim(),
+    categoria:   document.getElementById('fCateg').value,
+    usoAdecuado: selUsos.join(', ') || '—',
+    seguridad:   selSeg || '—',
+    etiqueta:    document.getElementById('fEtiq').value.trim(),
+    tienda,
+    precio:      precio.toFixed(2),
+    notas:       document.getElementById('fNotas').value.trim(),
+    fotos:       [...photos]   // guardar copia de las fotos
+  };
+
+  DB.push(p);
+  save();
+  resetForm();
+  renderInv();
+  updateBadge();
+  toast('✅ Producto agregado al inventario');
+  goTab('inv', document.querySelectorAll('.tab')[1]);
+}
+
+function resetForm(){
+  ['fNombre','fMarca','fPresent','fEtiq','fTienda','fNotas'].forEach(id=> document.getElementById(id).value='');
+  document.getElementById('fPrecio').value='';
+  document.getElementById('fCateg').value='';
+  document.getElementById('usoGroup').style.display='none';
+  document.getElementById('usoChips').innerHTML='';
+  document.getElementById('segHint').style.display='none';
+  document.querySelectorAll('#segChips .chip').forEach(c=>{ c.className='chip'; });
+  const box = document.getElementById('codeBox');
+  box.className='';
+  box.innerHTML=`<svg width="20" height="20" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="14" y1="3" x2="14" y2="21"/><line x1="3" y1="9" x2="9" y2="9"/><line x1="15" y1="9" x2="21" y2="9"/><line x1="3" y1="14" x2="21" y2="14"/></svg> Sin código detectado`;
+  curCode=''; selSeg=''; selUsos=[]; photos=[];
+  renderPhotoPreview();
+  document.getElementById('fFecha').value = today();
+  document.getElementById('page-scan').scrollTo(0,0);
+}
+
+/* ═══════════════════════════════════════════════
+   INVENTORY RENDER
+═══════════════════════════════════════════════ */
+function renderInv(){
+  const q    = (document.getElementById('searchQ')?.value||'').toLowerCase();
+  const list = document.getElementById('invList');
+  const data = DB.filter(p=>
+    !q ||
+    p.nombre.toLowerCase().includes(q)||
+    p.marca.toLowerCase().includes(q)||
+    (p.categoria||'').toLowerCase().includes(q)||
+    (p.tienda||'').toLowerCase().includes(q)||
+    (p.usoAdecuado||'').toLowerCase().includes(q)
+  );
+
+  if(!data.length){
+    list.innerHTML=`<div class="empty">
+      <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+      <p>${q?'Sin resultados para "'+esc(q)+'"':'Sin productos aún.<br>Escanea un código para empezar.'}</p>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = data.slice().reverse().map(p=>{
+    const thumb = p.fotos && p.fotos.length
+      ? `<img class="iimg" src="${p.fotos[0]}" alt="${esc(p.nombre)}" onclick="openModal(${p.id})">`
+      : `<div class="iimg-ph"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div>`;
+    return `
+    <div class="icard">
+      <div class="ih">
+        ${thumb}
+        <div class="iinfo">
+          <div class="iname">${esc(p.nombre)}</div>
+          <div class="ibrand">${esc(p.marca)}${p.presentacion?' · '+esc(p.presentacion):''}</div>
+          ${p.codigo&&p.codigo!=='Manual'?`<div style="font-size:10px;color:var(--tf);margin-top:2px;font-family:monospace">${esc(p.codigo)}</div>`:''}
+        </div>
+        <div class="iprice">$${p.precio}</div>
+      </div>
+      <div class="ibody">
+        ${p.categoria?`<span class="tag ${CAT_CLS[p.categoria]||'tb'}">${esc(p.categoria)}</span>`:''}
+        ${p.seguridad&&p.seguridad!=='—'?`<span class="tag ${SEG_CLS[p.seguridad]||'tb'}">⚑ ${esc(p.seguridad)}</span>`:''}
+        ${p.tienda?`<span class="tag" style="background:var(--bg);color:var(--tm);border:1px solid var(--br)">📍 ${esc(p.tienda)}</span>`:''}
+        ${p.fotos&&p.fotos.length>1?`<span class="tag" style="background:var(--pl);color:var(--pd)">📷 ${p.fotos.length} fotos</span>`:''}
+      </div>
+      ${p.etiqueta?`<div style="padding:0 14px 10px;font-size:12px;color:var(--tm);line-height:1.6">${esc(p.etiqueta.slice(0,120))}${p.etiqueta.length>120?'…':''}</div>`:''}
+      <div class="ifoot">
+        <div class="ifoot-meta">📅 ${p.fecha}${p.notas?' · '+esc(p.notas.slice(0,50)):''}</div>
+        <button class="iedit" onclick="openModal(${p.id})" title="Ver detalle">
+          <svg width="17" height="17" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+        <button class="ibtn-del" onclick="delProduct(${p.id})" title="Eliminar">
+          <svg width="17" height="17" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function delProduct(id){
+  if(!confirm('¿Eliminar este producto?')) return;
+  DB = DB.filter(p=>p.id!==id);
+  save(); renderInv(); updateBadge();
+  toast('Producto eliminado');
+}
+
+function clearAll(){
+  if(!DB.length){ toast('El inventario ya está vacío'); return; }
+  if(!confirm(`¿Borrar los ${DB.length} productos? Esta acción no se puede deshacer.`)) return;
+  DB=[];
+  save(); renderInv(); renderStats(); updateBadge();
+  toast('Inventario limpiado');
+}
+
+/* ═══════════════════════════════════════════════
+   MODAL DETALLE
+═══════════════════════════════════════════════ */
+function openModal(id){
+  const p = DB.find(x=>x.id===id);
+  if(!p) return;
+  document.getElementById('modalTitle').textContent = p.nombre + ' — ' + p.marca;
+  // Fotos
+  const pw = document.getElementById('modalPhotoWrap');
+  pw.innerHTML = p.fotos && p.fotos.length
+    ? p.fotos.map(src=>`<img class="modal-big-img" src="${src}" onclick="openLightbox('${src}')" alt="foto">`).join('')
+    : '';
+  // Info
+  const rows = [
+    ['Código',       p.codigo],
+    ['Presentación', p.presentacion],
+    ['Categoría',    p.categoria],
+    ['Uso adecuado', p.usoAdecuado],
+    ['Seguridad',    p.seguridad],
+    ['Instrucciones',p.etiqueta],
+    ['Tienda',       p.tienda],
+    ['Precio',       '$'+p.precio],
+    ['Fecha',        p.fecha],
+    ['Notas',        p.notas],
+  ].filter(r=>r[1]&&r[1]!=='—');
+  document.getElementById('modalBody').innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      ${rows.map(([k,v])=>`
+        <tr>
+          <td style="padding:7px 6px;color:var(--tm);font-weight:600;white-space:nowrap;vertical-align:top;width:36%">${esc(k)}</td>
+          <td style="padding:7px 6px;color:var(--tx);vertical-align:top">${esc(v)}</td>
+        </tr>`).join('')}
+    </table>`;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(e){
+  if(e && e.target !== document.getElementById('modal')) return;
+  document.getElementById('modal').classList.remove('open');
+}
+
+/* ═══════════════════════════════════════════════
+   LIGHTBOX
+═══════════════════════════════════════════════ */
+function openLightbox(src){
+  document.getElementById('lbImg').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox(){
+  document.getElementById('lightbox').classList.remove('open');
+}
+
+/* ═══════════════════════════════════════════════
+   STATS
+═══════════════════════════════════════════════ */
+function renderStats(){
+  const tot  = DB.length;
+  const val  = DB.reduce((s,p)=>s+parseFloat(p.precio||0),0);
+  const avg  = tot?val/tot:0;
+  const tnds = new Set(DB.map(p=>p.tienda).filter(Boolean)).size;
+  document.getElementById('sTot').textContent = tot;
+  document.getElementById('sVal').textContent = '$'+val.toFixed(2);
+  document.getElementById('sAvg').textContent = '$'+avg.toFixed(2);
+  document.getElementById('sTnd').textContent = tnds;
+
+  const catC={}, segC={};
+  DB.forEach(p=>{
+    if(p.categoria) catC[p.categoria]=(catC[p.categoria]||0)+1;
+    if(p.seguridad&&p.seguridad!=='—') segC[p.seguridad]=(segC[p.seguridad]||0)+1;
+  });
+  const maxC = Math.max(1,...Object.values(catC));
+  const maxS = Math.max(1,...Object.values(segC));
+
+  document.getElementById('catB').innerHTML = Object.keys(catC).length
+    ? Object.entries(catC).sort((a,b)=>b[1]-a[1]).map(([k,v])=>
+        `<div class="crow"><span style="font-size:13px">${esc(k)}</span><div style="display:flex;align-items:center;gap:8px"><div class="cbar-w"><div class="cbar" style="width:${Math.round(v/maxC*100)}%"></div></div><strong style="font-size:13px;color:var(--g1);min-width:16px;text-align:right">${v}</strong></div></div>`
+      ).join('')
+    : '<p style="color:var(--tf);font-size:13px;padding:10px 0">Sin datos aún.</p>';
+
+  document.getElementById('segB').innerHTML = Object.keys(segC).length
+    ? Object.entries(segC).map(([k,v])=>
+        `<div class="crow"><span class="tag ${SEG_CLS[k]||'tb'}">${esc(k)}</span><div style="display:flex;align-items:center;gap:8px"><div class="cbar-w"><div class="cbar" style="width:${Math.round(v/maxS*100)}%"></div></div><strong style="font-size:13px;color:var(--g1);min-width:16px;text-align:right">${v}</strong></div></div>`
+      ).join('')
+    : '<p style="color:var(--tf);font-size:13px;padding:10px 0">Sin datos aún.</p>';
+}
+
+/* ═══════════════════════════════════════════════
+   EXPORT EXCEL
+═══════════════════════════════════════════════ */
+function exportExcel(){
+  if(!DB.length){ toast('No hay productos para exportar'); return; }
+  const headers = ['Fecha','Código','Nombre','Marca','Presentación','Categoría','Uso adecuado','Seguridad','Instrucciones de uso','Lugar de compra','Precio (USD)','Notas','Fotos (#)'];
+  const rows = DB.map(p=>[
+    p.fecha, p.codigo, p.nombre, p.marca, p.presentacion,
+    p.categoria, p.usoAdecuado, p.seguridad, p.etiqueta,
+    p.tienda, parseFloat(p.precio), p.notas,
+    (p.fotos||[]).length
+  ]);
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers,...rows]);
+  ws['!cols'] = [10,18,26,16,16,22,32,22,42,18,12,28,8].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+  XLSX.writeFile(wb, `CleanInv_${today()}.xlsx`);
+  toast('✅ Excel exportado');
+}
+
+/* ═══════════════════════════════════════════════
+   HELP — CATÁLOGO
+═══════════════════════════════════════════════ */
+function buildCatHelp(){
+  document.getElementById('catHelp').innerHTML =
+    Object.entries(USO_MAP).map(([cat, usos])=>
+      `<div style="margin-bottom:10px"><strong style="color:var(--g1)">${esc(cat)}</strong><br>${esc(usos.join(', '))}</div>`
+    ).join('');
+}
+
+/* ═══════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════ */
+function save(){ localStorage.setItem('ci3', JSON.stringify(DB)); }
+function updateBadge(){ document.getElementById('badge').textContent = DB.length; }
+function esc(s){ if(!s)return''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+/* ═══════════════════════════════════════════════
+   PWA INSTALL
+═══════════════════════════════════════════════ */
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault(); deferredInstall=e;
+  document.getElementById('ibanner').style.display='flex';
+});
+function installPWA(){
+  if(!deferredInstall) return;
+  deferredInstall.prompt();
+  deferredInstall.userChoice.then(()=>{ deferredInstall=null; document.getElementById('ibanner').style.display='none'; });
+}
+window.addEventListener('appinstalled',()=>{ toast('¡App instalada! 🎉'); });
+
+init();
+</script>
+</body>
+</html>
